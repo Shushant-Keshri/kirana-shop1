@@ -1,0 +1,69 @@
+name: Build and Deploy (SSH)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Build client
+        working-directory: client
+        run: |
+          npm ci
+          npm run build
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Copy client dist to server
+        uses: appleboy/scp-action@v0.1.6
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "client/dist/*"
+          target: ${{ secrets.REMOTE_CLIENT_DIR }}
+
+      - name: Copy server files to server
+        uses: appleboy/scp-action@v0.1.6
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          source: |
+            server/package.json
+            server/server.js
+            server/ecosystem.config.js
+            server/.env.production.example
+            server/controllers/**
+            server/models/**
+            server/routes/**
+            server/middleware/**
+          target: ${{ secrets.REMOTE_SERVER_DIR }}
+
+      - name: Run remote deploy commands
+        uses: appleboy/ssh-action@v0.1.9
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            cd ${{ secrets.REMOTE_SERVER_DIR }}
+            npm ci --production
+            pm2 startOrReload ecosystem.config.js --env production || true
+            pm2 save
+            sudo nginx -s reload || true
