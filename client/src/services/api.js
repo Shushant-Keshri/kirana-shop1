@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || '/api';
+const baseURL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? '/api' : 'https://kirana-shop1.onrender.com/api');
 const api = axios.create({ baseURL, timeout: 15000 });
 
 api.interceptors.request.use(config => {
