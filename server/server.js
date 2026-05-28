@@ -32,8 +32,14 @@ app.use(mongoSanitize());
 // Prevent XSS attacks
 app.use(xssClean());
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  'https://shop-client-project.vercel.app',
+  'https://kirana-shop1-liard.vercel.app'
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: allowedOrigins,
   credentials: true
 }));
 
